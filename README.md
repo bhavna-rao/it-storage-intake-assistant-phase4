@@ -67,13 +67,13 @@ All three outcomes are exactly what the design intends: the deterministic thresh
 ## Honesty notes
 - **The threshold is a placeholder, not an approved policy.** The Phase 2 BRD (Assumption #3) states real auto-approval thresholds are "placeholders pending a confirmation workshop with the Storage Team." This prototype uses 10 GB purely to demonstrate the FR-02/FR-03 logic end-to-end.
 - **Nothing here is connected to a real storage system, ticketing queue, or email service.** Every status update and "provisioning" step is simulated, printed to the screen. No request submitted here provisions anything or reaches a real person.
-- **The AI only extracts information — it does not make the approval decision.** That decision is a fixed, testable Python rule (see `decide()` in `intake_assistant.py`), verified with unit tests before this was ever run live.
+- **The AI only extracts information — it does not make the approval decision.** That decision is a fixed, testable Python rule (see `decide()` in `intake_assistant.py`), covered by 11 unit tests in `test_intake_assistant.py` — including the exact threshold boundary (10 GB) and one GB on either side of it, which the two live-run scenarios below didn't happen to land on.
 - This is a prototype, not a production system, and it does not represent real company data, a client engagement, or professional work experience.
 
 ## Skills demonstrated
 **Business/domain (mine):** translating the Phase 2 BRD's functional requirements directly into a working flow; deciding what belongs in AI's hands (understanding free text) versus what must stay deterministic (the approval decision) — a real design judgment, not a default; scoping the prototype down to a defensible, honestly-labeled core rather than overbuilding.
 
-**AI-directed development:** I designed the conversation flow, the field-extraction approach, and — critically — the decision to keep the approval logic outside the AI entirely; Claude AI implemented the code in Python at my direction. I'm not a Python developer; I reviewed, tested, and validated the logic myself, including running unit tests against the threshold rule before any live conversation.
+**AI-directed development:** I designed the conversation flow, the field-extraction approach, and — critically — the decision to keep the approval logic outside the AI entirely; Claude AI implemented the code in Python at my direction. I'm not a Python developer; I reviewed, tested, and validated the logic myself. The same split applies to `test_intake_assistant.py`: I identified that my live-run testing (below) never actually exercised the exact 10 GB threshold, only values clearly above and below it, and directed that this gap be closed with dedicated unit tests; Claude wrote the test code, and I ran all 11 tests myself — in Colab, separately from where they were written — and confirmed the results independently rather than taking a "tests exist" claim on faith.
 
 ## Tools Used
 Python (implemented with Claude AI direction) · Anthropic Claude API · Kaggle-derived dataset context (via Phase 1) · same MoSCoW-prioritized requirements as the Phase 2 BRD
@@ -85,9 +85,27 @@ Python (implemented with Claude AI direction) · Anthropic Claude API · Kaggle-
 4. `python intake_assistant.py`
 5. Describe a storage need when prompted, answer any follow-up questions, and watch the simulated status trail.
 
+## Running the unit tests
+The `decide()` function — the deterministic approve/route rule — is covered separately from the live-API flow, so it can be checked instantly with no API key and no network call:
+1. `pip install -r requirements-dev.txt` (installs pytest on top of the normal dependencies)
+2. `pytest test_intake_assistant.py -v`
+3. Expect 11 passed — covering the exact threshold boundary, both live-verified scenarios, the missing-input contract, a custom-threshold override, and one test that documents a known, undecided gap (negative amounts aren't currently rejected) rather than hiding it.
+
+## How I personally verified this
+Beyond running the automated `pytest` suite above, I also checked the logic by hand — typing each case myself and reading the actual result, rather than only trusting an automated "11 passed" summary:
+- Pasted `decide()` on its own into a fresh Google Colab notebook (no other code, no installs needed) and called it directly with each case — `decide(10)`, `decide(9.99)`, `decide(10.01)`, `decide(5)`, `decide(50)`, `decide(0)`, `decide(None)`, `decide(15, threshold=20)`, `decide(-5)` — confirming every result myself before accepting the automated test file's claim.
+- Separately, re-ran the full live conversational flow in Colab a second time — a different session from the one behind `Phase4_Live_Verification_Record.docx` — typing real input at the `You:` prompt exactly as a real user would, to re-confirm the AI-extraction-to-decision handoff still works end to end.
+- Designed and documented these as formal test cases using Boundary Value Analysis and Equivalence Partitioning (standard QA/BA techniques), rather than picking numbers arbitrarily — see `Test_Case_Design_Template.xlsx`, which has a reusable blank template plus the 8 actual test cases run against this project's rule.
+
+I don't write Python; Claude implemented `decide()` and `test_intake_assistant.py` at my direction (see "AI-directed development" above). What's mine here is deciding what needed checking, designing the specific scenarios with a standard test-design method, and personally executing and confirming every one of them — independently of how the code itself was written.
+
 ## Files in this repo
 - `intake_assistant.py` — the full flow: conversational field extraction, deterministic decision logic, simulated status updates
-- `requirements.txt` — Python dependencies
+- `test_intake_assistant.py` — automated unit tests for the deterministic `decide()` logic (11 tests, no API required)
+- `Test_Case_Design_Template.xlsx` — the same coverage as a reusable, no-code test case document (Instructions, blank Template, and a Worked Example tab matching this project), showing the manual verification described above
+- `requirements.txt` — Python dependencies to run the assistant
+- `requirements-dev.txt` — adds pytest, for running the automated unit tests
+- `Phase4_Live_Verification_Record.docx` — the three real, live-run transcripts (and one screenshot) behind the "Results" section above
 
 ## Note
 This is a personal, self-directed portfolio project — Phase 4 of a multi-part initiative — built on the Phase 2 BRD's own requirements. It does not represent real company data, a client engagement, or professional work experience.
